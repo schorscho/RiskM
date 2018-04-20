@@ -448,8 +448,8 @@ def execute_pre_init():
 
     logger.info("Creating proper header ...")
 
-    fac = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT + '.fac')
-    csv = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_PROPER_HEADER + '.csv')
+    fac = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT_ALL + '.fac')
+    csv = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv')
 
     with open(fac, 'r') as orig:
         with open(csv, 'w') as copy:
@@ -472,7 +472,7 @@ def execute_pre_init():
 
     logger.info("Reading data file ...")
 
-    df = spark.read.csv(path=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_PROPER_HEADER + '.csv'), header=True, inferSchema=True)
+    df = spark.read.csv(path=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv'), header=True, inferSchema=True)
 
     logger.info("Reading data file done.")
 
@@ -490,7 +490,7 @@ def execute_pre_init():
     for file in os.listdir(os.path.join(RMC.OUTPUT_DIR, 'tmp.csv')):
         if file.endswith('.csv'):
             move(src=os.path.join(RMC.OUTPUT_DIR, 'tmp.csv', file),
-                 dst=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_2018_ONLY + '.csv'))
+                 dst=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT + '.csv'))
             break
 
     rmtree(os.path.join(RMC.OUTPUT_DIR, 'tmp.csv'))
