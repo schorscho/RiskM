@@ -666,7 +666,7 @@ def main():
         if arg == 'pre_init':
             pre_init = True
         if arg == 'init':
-            initialization = True
+            init = True
         elif arg == 'train':
             train = True
         elif arg == 'test':
