@@ -527,6 +527,12 @@ def execute_pre_init():
 
     df = df.groupBy('SCENARIO', 'MONTH').agg(*max_agg_cols)
 
+    col_nms = df.columns
+    del col_nms[0:2]
+
+    df = df.withColumn('FEATURES', sf.array(col_nms))
+    df = df.drop(*col_nms)
+
     logger.info("Aggregating value columns done in %s.", time_it(then, time()))
 
     logger.info("Saving reshaped data to file ...")
