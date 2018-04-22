@@ -4,7 +4,7 @@ import pickle
 import logging.config
 from time import time
 from math import sqrt
-from shutil import copyfile, rmtree
+from shutil import copyfile
 
 import numpy as np
 
@@ -23,10 +23,6 @@ from keras.layers import Input, Dense, CuDNNGRU, Bidirectional, GaussianNoise, D
 from keras.models import Model, load_model
 from keras.utils import multi_gpu_model
 from keras.utils.vis_utils import plot_model
-
-from pyspark import SparkContext
-from pyspark.sql import SparkSession
-import pyspark.sql.functions as sf
 
 
 DEFAULT_LOGGING = {
@@ -74,6 +70,7 @@ class RMC:
     PROPHET_INPUT_ALL = '201709_SD_MC_EUR_Basis10k_10001_60_1'
     PROPHET_INPUT_ALL_PROPER_HEADER = '201709_SD_MC_EUR_Basis10k_10001_60_1 (proper header)'
     PROPHET_INPUT_ALL_RESHAPED = '201709_SD_MC_EUR_Basis10k_10001_60_1 (reshaped)'
+    PROPHET_INPUT_ALL_NUMPY = '201709_SD_MC_EUR_Basis10k_10001_60_1 (numpy)'
     PROPHET_OUTPUT_ALL = '10k_Daten_fuer_Training_v01_fix'
 
     TRAIN_X_DATA_FILE = 'train_x_data'
@@ -442,119 +439,6 @@ class Model_Tracker(Callback):
             print("New model version saved - val_rmse ({:.6f})".format(sqrt(val_loss)))
 
 
-def execute_pre_init():
-    logger.info("Pre-initial data preparation ...")
-
-    then = time()
-
-    logger.info("Creating proper header ...")
-
-    fac = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT_ALL + '.fac')
-    csv = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv')
-
-    with open(fac, 'r') as orig:
-        with open(csv, 'w') as copy:
-            i = 0
-            for line in orig:
-                if i >= 2:
-                    copy.write(line)
-
-                i += 1
-
-                if i % 10000 == 0:
-                    logger.info("Creating proper header ... %3.2f%%", (i * 100.0 / 780081))
-
-    logger.info("Creating proper header done in %s.", time_it(then, time()))
-
-    logger.info("Reading proper data file ...")
-
-    then = time()
-    sc = SparkContext("local[3]", "test")
-    spark = SparkSession(sc)
-
-    df = spark.read.csv(path=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv'), header=True, inferSchema=True)
-
-    logger.info("Reading proper data file done in %s.", time_it(then, time()))
-
-    logger.info("Collecting distinct value column names ...")
-
-    then = time()
-
-    df = df.withColumn('EC_CL_MS_OS', sf.concat(df.ECONOMY, sf.lit('_'), df.CLASS, sf.lit('_'),
-                                                df.MEASURE, sf.lit('_'), df.OS_TERM))
-
-    df = df.drop('!6', 'ECONOMY', 'CLASS', 'MEASURE', 'OS_TERM')
-
-    # this is to provide faster test, needs to be uncommented later on
-    #df = df.select('SCENARIO', 'EC_CL_MS_OS', '201712', '201801')
-
-    # this is way cheaper to do now than to wait until all months have been transposed as rows
-    val_col_nms = sorted(df.select('EC_CL_MS_OS').distinct().rdd.map(lambda row: row[0]).collect())
-
-    logger.info("Collecting distinct value column names done in %s.", time_it(then, time()))
-
-    logger.info("Transposing month columns as rows ...")
-
-    then = time()
-
-    keep_col_nms = ['SCENARIO', 'EC_CL_MS_OS']
-
-    mo_col_nms = [c for c in df.columns if c not in keep_col_nms]
-
-    mo_val_cols = sf.explode(sf.array(
-        [sf.struct(sf.lit(c).alias("MONTH"), sf.col(c).alias("VALUE")) for c in mo_col_nms])).alias('MONTH_VALUE')
-
-    df = df.select(keep_col_nms + [mo_val_cols]).select(keep_col_nms + ['MONTH_VALUE.MONTH', 'MONTH_VALUE.VALUE'])
-
-    logger.info("Transposing month columns as rows done in %s.", time_it(then, time()))
-
-    logger.info("Selecting with value columns ...")
-
-    then = time()
-
-    val_cols = [sf.when(sf.col('EC_CL_MS_OS') == c, sf.col('VALUE')).otherwise(None).alias(c)
-                for c in val_col_nms]
-
-    max_agg_cols = [sf.max(sf.col(c)).alias(c) for c in val_col_nms]
-
-    df = df.select(sf.col('SCENARIO'), sf.col('MONTH'), *val_cols)
-
-    logger.info("Selecting with value columns done in %s.", time_it(then, time()))
-
-    logger.info("Aggregating value columns ...")
-
-    then = time()
-
-    df = df.groupBy('SCENARIO', 'MONTH').agg(*max_agg_cols)
-
-    #col_nms = df.columns
-    #del col_nms[0:2]
-
-    #df = df.withColumn('FEATURES', sf.array(col_nms))
-    #df = df.drop(*col_nms)
-
-    logger.info("Aggregating value columns done in %s.", time_it(then, time()))
-
-    logger.info("Saving reshaped data to file ...")
-
-    if os.path.exists(os.path.join(RMC.OUTPUT_DIR, 'tmp.csv')):
-        rmtree(os.path.join(RMC.OUTPUT_DIR, 'tmp.csv'))
-
-    df.write.csv(path=os.path.join(RMC.OUTPUT_DIR, 'tmp.csv'), mode='overwrite', header=True)
-
-    if os.path.exists(os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_RESHAPED + '.csv')):
-        rmtree(os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_RESHAPED + '.csv'))
-
-    os.rename(src=os.path.join(RMC.OUTPUT_DIR, 'tmp.csv'),
-                               dst=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_RESHAPED + '.csv'))
-
-    logger.info("Saving reshaped data to file done in %s.", time_it(then, time()))
-
-    sc.stop()
-
-    logger.info("Pre-initial data preparation done in %s.", time_it(then, time()))
-
-
 def execute_init(train_x, train_y):
     logger.info("Starting initial data preparation ...")
 
@@ -703,7 +587,6 @@ def main():
 
     logger.info("Main script started ...")
 
-    pre_init = False
     init = False
     train = False
     test = False
@@ -723,12 +606,9 @@ def main():
         elif arg == 'test':
             test = True
 
-    if not pre_init and not init and not train and not test:
+    if not init and not train and not test:
         init = True
         train = True
-
-    if pre_init:
-        execute_pre_init()
 
     train_x, train_y, val_x, val_y, test_x, test_y = load_all_data(
         train_set=(train or init),
