@@ -68,9 +68,9 @@ class RMC:
     THIS_FILE = 'riskm_all'
 
     PROPHET_INPUT_ALL = '201709_SD_MC_EUR_Basis10k_10001_60_1'
-    PROPHET_INPUT_ALL_PROPER_HEADER = '201709_SD_MC_EUR_Basis10k_10001_60_1 (proper header)'
-    PROPHET_INPUT = '201709_SD_MC_EUR_Basis10k_10001_60_1 (2018)'
-    PROPHET_OUTPUT = '10k_Daten_fuer_Training_v01_fix'
+    PROPHET_INPUT_ALL_PROPER_HEADER = '201709_SD_MC_EUR_Basis10k_10001_60_1_(proper_header)'
+    PROPHET_INPUT = '201709_SD_MC_EUR_Basis10k_10001_60_1_(2018)'
+    PROPHET_OUTPUT = '10k_Daten_fuer_Training_v01_fix_(year_1_and_40)'
 
     TRAIN_X_DATA_FILE = 'train_x_data'
     TRAIN_Y_DATA_FILE = 'train_y_data'
@@ -94,32 +94,26 @@ class RMC:
     GPUS=1
     MV = 'MV03R00'
 
-    BATCH_SIZE = 256
+    BATCH_SIZE = 32
     OV = 'OV01R00'
 
     START_EP = 0
     END_EP = 400
-    LOAD_MODEL = 'TR010_MV03R00_OV01R00_DP02R00'
-    TRN = 'TR013'
+    LOAD_MODEL = None
+    TRN = 'TR014'
     
 
 def build_keras_model():
     ip = Input(shape=(RMC.INPUT_LEN, RMC.INPUT_DIM), name='Input_Sequence')
     op = \
-        Bidirectional(CuDNNGRU(units=300, return_sequences=True, name='RNN_1'))(ip)
-    op = Dropout(0.1)(op)
+        Bidirectional(CuDNNGRU(units=600, return_sequences=True, name='RNN_1'))(ip)
     op = \
-        Bidirectional(CuDNNGRU(units=300, return_sequences=True, name='RNN_2'))(op)
-    op = Dropout(0.1)(op)
+        Bidirectional(CuDNNGRU(units=600, return_sequences=True, name='RNN_2'))(op)
     op = \
-        Bidirectional(CuDNNGRU(units=300, name='RNN_3'))(op)
-    op = Dropout(0.1)(op)
-    op = Dense(300, name='Dense_1')(op)
-    op = Dropout(0.1)(op)
-    op = Dense(200, name='Dense_2')(op)
-    op = Dropout(0.1)(op)
-    op = Dense(100, name='Dense_3')(op)
-    op = Dropout(0.1)(op)
+        Bidirectional(CuDNNGRU(units=600, name='RNN_3'))(op)
+    op = Dense(600, name='Dense_1')(op)
+    op = Dense(300, name='Dense_2')(op)
+    op = Dense(200, name='Dense_3')(op)
     op = Dense(1, name='Prediction')(op)
 
     model = Model(ip, op)
@@ -560,7 +554,6 @@ def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build
         model = compile_keras_model(model)
     else:
         model = build_on_model
-
 
     callbacks = [LearningRateScheduler(lr_schedule)]
 
