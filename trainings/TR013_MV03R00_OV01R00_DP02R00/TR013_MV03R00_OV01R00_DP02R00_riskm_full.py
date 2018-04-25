@@ -1,6 +1,7 @@
 import sys
 import os
 import pickle
+import logging.config
 from time import time
 from math import sqrt
 from shutil import copyfile
@@ -17,7 +18,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 
 from keras.callbacks import Callback, LearningRateScheduler
-from keras.layers import Input, Dense, CuDNNGRU, Bidirectional
+from keras.layers import Input, Dense, CuDNNGRU, Bidirectional, GaussianNoise, Dropout
 from keras.models import Model, load_model
 from keras.utils import multi_gpu_model
 from keras.utils.vis_utils import plot_model
@@ -131,26 +132,6 @@ def save_model_graph_and_summary(model, model_dir, model_file_name):
         model.summary(print_fn=lambda x: fh.write(x + '\n'))
 
 
-# def save_validation_results():
-#     # This is because we deleted scenario 2053 (index 2052 in numpy array) from data set
-#     val_i[val_i > 2051] += 1
-#
-#     test_result = pd.DataFrame(
-#         {RMC.SCEN_ID_COL: val_i + 1, 'y': y, 'y_pred': y_p, 'Difference': y - y_p, 'Deviation': (y - y_p) * 100 / y})
-#     test_result.set_index(RMC.SCEN_ID_COL, inplace=True)
-#     test_result.sort_index(inplace=True)
-#
-#     skl_mse = mean_squared_error(y, y_p)
-#     skl_rmse = sqrt(skl_mse)
-#
-#     if model_file_name is not None:
-#         with open(os.path.join(model_dir, model_file_name + '_train_results.csv'), "w") as file:
-#             file.write("Best Epoch: {0}, Val MSE: {1}, Val RMSE: {2}\n".format(mt_callback.best_epoch, skl_mse, skl_rmse))
-#             file.write("\n")
-#             test_result.to_csv(path_or_buf=file, columns=['y', 'y_pred', 'Difference', 'Deviation'])
-#             file.write(",,,, {0}\n".format(np.mean(np.absolute(y - y_p) * 100 / y)))
-
-
 def copy_this_file(model_dir, model_file_name):
     this_file_name = os.path.join(RMC.SRC_DIR, RMC.THIS_FILE + '.py')
     copy_file_name = os.path.join(model_dir, model_file_name + '_' + RMC.THIS_FILE + '.py')
@@ -238,9 +219,6 @@ def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build
     y = np.reshape(a=y_v, newshape=(len(y_v),))
     y_p = np.reshape(a=y_p, newshape=(len(y_v),))
 
-    # This is because we deleted scenario 2053 (index 2052 in numpy array) from data set
-    val_i[val_i > 2051] += 1
-
     test_result = pd.DataFrame(
         {RMC.SCEN_ID_COL: val_i + 1, 'y': y, 'y_pred': y_p, 'Difference': y - y_p, 'Deviation': (y - y_p) * 100 / y})
     test_result.set_index(RMC.SCEN_ID_COL, inplace=True)
@@ -327,13 +305,13 @@ def main():
             if not os.path.exists(model_dir) and train:
                 os.makedirs(model_dir)
 
-            if previous_keras_model_file_exists(model_dir, model_file_name):
-               logger.info("Loading model ...")
+#            if previous_keras_model_file_exists(model_dir, model_file_name):
+#                logger.info("Loading model ...")
 
-               fpp = load_feature_prep_pipeline(model_dir, model_file_name)
-               model = load_keras_model(model_dir, model_file_name)
+#                fpp = load_feature_prep_pipeline(model_dir, model_file_name)
+#                model = load_keras_model(model_dir, model_file_name)
 
-               logger.info("Loading model done.")
+#                logger.info("Loading model done.")
 
     if train:
         fpp, model = execute_train(model_dir, model_file_name,

@@ -45,10 +45,11 @@ class RMC:
     THIS_FILE = 'riskm_full'
 
     PROPHET_INPUT_ALL = '201709_SD_MC_EUR_Basis10k_10001_60_1'
-    PROPHET_INPUT_ALL_PROPER_HEADER = '201709_SD_MC_EUR_Basis10k_10001_60_1_(proper_header)'
+    PROPHET_INPUT_ALL_PROPER = '201709_SD_MC_EUR_Basis10k_10001_60_1_(proper)'
     PROPHET_INPUT_ALL_RESHAPED = '201709_SD_MC_EUR_Basis10k_10001_60_1_(reshaped)'
     PROPHET_INPUT_ALL_NUMPY = '201709_SD_MC_EUR_Basis10k_10001_60_1_(numpy)'
     PROPHET_OUTPUT_ALL = '10k_Daten_fuer_Training_v01_fix_(all_40_years)'
+    PROPHET_OUTPUT_ALL_PROPER = '10k_Daten_fuer_Training_v01_fix_(proper)'
     PROPHET_OUTPUT_ALL_NUMPY = '10k_Daten_fuer_Training_v01_fix_(numpy)'
 
     TRAIN_X_DATA_FILE = 'train_x_data'

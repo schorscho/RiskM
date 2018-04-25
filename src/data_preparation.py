@@ -179,6 +179,9 @@ def transform_input_to_numpy(spark):
 
     then = time()
 
+    # SCENARIO's 2053 output is corrupted
+    df = df.where('SCENARIO != 2053')
+
     df = df.orderBy('SCENARIO', 'MONTH')
 
     df = df.drop('SCENARIO', 'MONTH')
@@ -212,15 +215,6 @@ def transform_input_to_numpy(spark):
 
 
 def transform_output_to_numpy(spark):
-#    data = pd.read_csv(filepath_or_buffer=os.path.join(RMC.INPUT_DIR, RMC.PROPHET_OUTPUT_ALL + '.csv'),
-#                       sep=';', thousands='.', decimal=',', header=0)
-
-#    data.set_index('SCENARIO', inplace=True)
-#    data.sort_index(inplace=True)
-
-#    data = data.astype('float64')
-#    data = data.as_matrix()
-
     logger.info("Transforming prophet input data to numpy array ...")
 
     overall = time()
@@ -229,7 +223,7 @@ def transform_output_to_numpy(spark):
 
     then = time()
 
-    df = spark.read.csv(path=os.path.join(RMC.INPUT_DIR, RMC.PROPHET_OUTPUT_ALL + '.csv'),
+    df = spark.read.csv(path=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_OUTPUT_ALL_PROPER + '.csv'),
                         header=True, inferSchema=True, sep=';')
 
     logger.info("Reading output data file done in %s.", time_it(then, time()))
@@ -258,41 +252,49 @@ def transform_output_to_numpy(spark):
     logger.info("Transforming prophet ouput data to numpy array done in %s.", time_it(overall, time()))
 
 
-def execute_proper_header():
-    logger.info("Creating proper data file ...")
+def execute_proper():
+    logger.info("Creating proper data files ...")
 
     then = time()
 
-    # wro = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT_ALL + '.fac')
-    # pro = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv')
-    #
-    # with open(wro, 'r') as orig:
-    #     with open(pro, 'w') as copy:
-    #         i = 0
-    #         for line in orig:
-    #             if i >= 2:
-    #                 copy.write(line)
-    #
-    #             i += 1
-    #
-    #             if i % 10000 == 0:
-    #                 logger.info("Creating proper data file ... %3.2f%%", (i * 100.0 / 780081))
-    #
     wro = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT_ALL + '.fac')
-    pro = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv')
+    pro = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER + '.csv')
 
     with open(wro, 'r') as orig:
+        print("open orig")
         with open(pro, 'w') as copy:
+            print("open copy")
             i = 0
             for line in orig:
-                copy.write(line.replace(',', ''))
+                if i >= 2:
+                    copy.write(line)
 
                 i += 1
 
-                if i % 10000 == 0:
-                    logger.info("Creating proper data file ... %3.2f%%", (i * 100.0 / 780081))
+                if i % 100000 == 0:
+                    logger.info("Creating proper input data file ... %3.2f%%", (i * 100.0 / 780081))
 
-    logger.info("Creating proper data file done in %s.", time_it(then, time()))
+    wro = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_OUTPUT_ALL + '.csv')
+    pro = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_OUTPUT_ALL_PROPER + '.csv')
+
+    with open(wro, 'r') as orig:
+        print("open orig")
+        with open(pro, 'w') as copy:
+            print("open copy")
+            i = 0
+            for line in orig:
+                # SCENARIO's 2053 output is corrupted
+                if i != 2053:
+                    copy.write(line.replace(',', ''))
+                else:
+                    print(line)
+
+                i += 1
+
+                if i % 1000 == 0:
+                    logger.info("Creating proper output data file ... %3.2f%%", (i * 100.0 / 10001))
+
+    logger.info("Creating proper data files done in %s.", time_it(then, time()))
 
 
 def execute_transpose(spark):
@@ -304,7 +306,7 @@ def execute_transpose(spark):
 
     then = time()
 
-    df = spark.read.csv(path=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv'),
+    df = spark.read.csv(path=os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER + '.csv'),
                         header=True, inferSchema=True)
 
     logger.info("Reading proper data file done in %s.", time_it(then, time()))
@@ -389,7 +391,7 @@ def execute_to_numpy(spark):
 
     overall = time()
 
-    #transform_input_to_numpy(spark)
+    transform_input_to_numpy(spark)
 
     transform_output_to_numpy(spark)
 
@@ -453,7 +455,7 @@ def main():
 
     logger.info("Main script started ...")
 
-    proper_header = False
+    proper = False
     transpose = False
     to_numpy = False
     trim_and_split = False
@@ -462,8 +464,8 @@ def main():
     sc = None
 
     for arg in sys.argv[1:]:
-        if arg == 'proper_header':
-            proper_header = True
+        if arg == 'proper':
+            proper = True
         if arg == 'transpose':
             transpose = True
         elif arg == 'to_numpy':
@@ -471,8 +473,8 @@ def main():
         elif arg == 'trim_and_split':
             trim_and_split = True
 
-    if not proper_header and not transpose and not to_numpy and not trim_and_split:
-        proper_header = True
+    if not proper and not transpose and not to_numpy and not trim_and_split:
+        proper = True
         transpose = True
         to_numpy = True
         trim_and_split = True
@@ -484,8 +486,8 @@ def main():
         sc = SparkContext("local[3]", "test")
         spark = SparkSession(sc)
 
-    if proper_header:
-        execute_proper_header()
+    if proper:
+        execute_proper()
 
     if transpose:
         execute_transpose(spark)
