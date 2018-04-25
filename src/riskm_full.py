@@ -162,7 +162,8 @@ class Model_Tracker(Callback):
             print("New model version saved - val_rmse ({:.6f})".format(sqrt(val_loss)))
 
 
-def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build_on_model, train_x, train_y, val_x, val_y):
+def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build_on_model,
+                  train_x, train_y, train_i, val_x, val_y, val_i):
     if fpp is None:
         fpp = create_feature_prep_pipeline()
         fit = True
@@ -219,7 +220,7 @@ def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build
     y_p = np.reshape(a=y_p, newshape=(len(y_v),))
 
     test_result = pd.DataFrame(
-        {RMC.SCEN_ID_COL: val_x.index.levels[0], 'y': y, 'y_pred': y_p, 'Difference': y - y_p, 'Deviation': (y - y_p) * 100 / y})
+        {RMC.SCEN_ID_COL: val_i + 1, 'y': y, 'y_pred': y_p, 'Difference': y - y_p, 'Deviation': (y - y_p) * 100 / y})
     test_result.set_index(RMC.SCEN_ID_COL, inplace=True)
     test_result.sort_index(inplace=True)
 
@@ -238,7 +239,7 @@ def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build
     return fpp, model
 
 
-def execute_test(fpp, model, test_x, test_y, model_dir, model_file_name):
+def execute_test(fpp, model, test_x, test_y, test_i, model_dir, model_file_name):
     logger.info("Testing model ...")
 
     x = apply_feature_prep_pipeline(x=test_x, fpp=fpp, fit=False)
@@ -250,7 +251,7 @@ def execute_test(fpp, model, test_x, test_y, model_dir, model_file_name):
     y_p = np.reshape(a=y_p, newshape=(len(y),))
 
     test_result = pd.DataFrame(
-        {RMC.SCEN_ID_COL: test_x.index.levels[0], 'y': y, 'y_pred': y_p, 'Difference': y - y_p, 'Deviation': (y - y_p) * 100 / y})
+        {RMC.SCEN_ID_COL: test_i + 1, 'y': y, 'y_pred': y_p, 'Difference': y - y_p, 'Deviation': (y - y_p) * 100 / y})
     test_result.set_index(RMC.SCEN_ID_COL, inplace=True)
     test_result.sort_index(inplace=True)
 
@@ -290,7 +291,7 @@ def main():
     if not train and not test:
         train = True
 
-    train_x, train_y, val_x, val_y, test_x, test_y = load_all_data(
+    train_x, train_y, train_i, val_x, val_y, val_i, test_x, test_y, test_i = load_all_data(
         train_set=train,
         val_set=train,
         test_set=test,
@@ -304,22 +305,23 @@ def main():
             if not os.path.exists(model_dir) and train:
                 os.makedirs(model_dir)
 
-            if previous_keras_model_file_exists(model_dir, model_file_name):
-                logger.info("Loading model ...")
+#            if previous_keras_model_file_exists(model_dir, model_file_name):
+#                logger.info("Loading model ...")
 
-                fpp = load_feature_prep_pipeline(model_dir, model_file_name)
-                model = load_keras_model(model_dir, model_file_name)
+#                fpp = load_feature_prep_pipeline(model_dir, model_file_name)
+#                model = load_keras_model(model_dir, model_file_name)
 
-                logger.info("Loading model done.")
+#                logger.info("Loading model done.")
 
     if train:
         fpp, model = execute_train(model_dir, model_file_name,
                                    start_epoch=RMC.START_EP, end_epoch=RMC.END_EP,
                                    fpp=fpp, build_on_model=model,
-                                   train_x=train_x, train_y=train_y, val_x=val_x, val_y=val_y)
+                                   train_x=train_x, train_y=train_y, train_i=train_i,
+                                   val_x=val_x, val_y=val_y, val_i=val_i)
 
     if test:
-        execute_test(fpp, model, test_x, test_y, model_dir, model_file_name)
+        execute_test(fpp, model, test_x, test_y, test_i, model_dir, model_file_name)
 
     logger.info("Main script finished in %s.", time_it(overall, time()))
 

@@ -53,10 +53,13 @@ class RMC:
 
     TRAIN_X_DATA_FILE = 'train_x_data'
     TRAIN_Y_DATA_FILE = 'train_y_data'
+    TRAIN_I_DATA_FILE = 'train_i_data'
     VAL_X_DATA_FILE = 'val_x_data'
     VAL_Y_DATA_FILE = 'val_y_data'
+    VAL_I_DATA_FILE = 'val_i_data'
     TEST_X_DATA_FILE = 'test_x_data'
     TEST_Y_DATA_FILE = 'test_y_data'
+    TEST_I_DATA_FILE = 'test_i_data'
 
     SCEN_ID_COL = 'SCENARIO'
     MONTH_COL = 'MONTH'

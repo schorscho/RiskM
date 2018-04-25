@@ -26,10 +26,13 @@ def load_data(file_name, init=False):
 def load_all_data(train_set, val_set, test_set, init):
     train_x = None
     train_y = None
+    train_i = None
     val_x = None
     val_y = None
+    val_i = None
     test_x = None
     test_y = None
+    test_i = None
 
     if train_set:
         logger.info("Loading training data ...")
@@ -40,6 +43,7 @@ def load_all_data(train_set, val_set, test_set, init):
         else:
             train_x = load_data(file_name=RMC.TRAIN_X_DATA_FILE)
             train_y = load_data(file_name=RMC.TRAIN_Y_DATA_FILE)
+            train_i = load_data(file_name=RMC.TRAIN_I_DATA_FILE)
 
         logger.info("Loading training data done.")
 
@@ -48,6 +52,7 @@ def load_all_data(train_set, val_set, test_set, init):
 
         val_x = load_data(file_name=RMC.VAL_X_DATA_FILE)
         val_y = load_data(file_name=RMC.VAL_Y_DATA_FILE)
+        val_i = load_data(file_name=RMC.VAL_I_DATA_FILE)
 
         logger.info("Loading prepared validation data done.")
 
@@ -56,10 +61,11 @@ def load_all_data(train_set, val_set, test_set, init):
 
         test_x = load_data(file_name=RMC.TEST_X_DATA_FILE)
         test_y = load_data(file_name=RMC.TEST_Y_DATA_FILE)
+        test_i = load_data(file_name=RMC.TEST_I_DATA_FILE)
 
         logger.info("Loading prepared test data done.")
 
-    return train_x, train_y, val_x, val_y, test_x, test_y
+    return train_x, train_y, train_i, val_x, val_y, val_i, test_x, test_y, test_i
 
 
 def save_data(data, file_name):
@@ -68,12 +74,13 @@ def save_data(data, file_name):
     np.save(file=os.path.join(RMC.OUTPUT_DIR, file_name), arr=data)
 
 
-def save_all_data(train_x, train_y, val_x, val_y, test_x, test_y):
+def save_all_data(train_x, train_y, train_i, val_x, val_y, val_i, test_x, test_y, test_i):
     if train_x is not None and train_y is not None:
         logger.info("Saving prepared training data ...")
 
         save_data(train_x, RMC.TRAIN_X_DATA_FILE)
         save_data(train_y, RMC.TRAIN_Y_DATA_FILE)
+        save_data(train_i, RMC.TRAIN_I_DATA_FILE)
 
         logger.info("Saving prepared training data done.")
 
@@ -82,6 +89,7 @@ def save_all_data(train_x, train_y, val_x, val_y, test_x, test_y):
 
         save_data(val_x, RMC.VAL_X_DATA_FILE)
         save_data(val_y, RMC.VAL_Y_DATA_FILE)
+        save_data(val_i, RMC.VAL_I_DATA_FILE)
 
         logger.info("Saving prepared validation data done.")
 
@@ -90,6 +98,7 @@ def save_all_data(train_x, train_y, val_x, val_y, test_x, test_y):
 
         save_data(test_x, RMC.TEST_X_DATA_FILE)
         save_data(test_y, RMC.TEST_Y_DATA_FILE)
+        save_data(test_i, RMC.TEST_I_DATA_FILE)
 
         logger.info("Saving prepared test data done.")
 
@@ -102,29 +111,35 @@ def trim_data(x_data, y_data, years):
 
 def split_data(x, y, train_size, val_size, test_size):
     if val_size + test_size > 0:
-        x_tr,y_tr,  x_v, y_v = split_train_test(x, y, train_size, val_size + test_size)
+        x_tr,y_tr, x_v, y_v, i_tr, i_v = split_train_test(x, y, train_size, val_size + test_size)
 
         if val_size == 0:
             x_te = x_v
             y_te = y_v
+            i_te = i_v
             x_v = None
             y_v = None
+            i_v = None
         elif test_size == 0:
             x_te = None
             y_te = None
+            i_te = None
         else:
-            x_v, y_v, x_te, y_te = split_train_test(x_v, y_v,
+            x_v, y_v, x_te, y_te, i_v, i_te = split_train_test(x_v, y_v,
                                                     val_size / (val_size + test_size),
                                                     test_size / (val_size + test_size))
     else:
         x_tr = x
         y_tr = y
+        i_tr = range(len(y_tr))
         x_v = None
         y_v = None
+        i_v = None
         x_te = None
         y_te = None
+        i_te = None
 
-    return x_tr, y_tr, x_v, y_v, x_te, y_te
+    return x_tr, y_tr, x_v, y_v, x_te, y_te, i_tr, i_v, i_te
 
 
 def split_train_test(x, y, train_size, test_size):
@@ -134,6 +149,8 @@ def split_train_test(x, y, train_size, test_size):
     y_tr = None
     x_te = None
     y_te = None
+    train_i = None
+    test_i = None
 
     for train_i, test_i in res:
         x_tr = x[train_i]
@@ -141,7 +158,7 @@ def split_train_test(x, y, train_size, test_size):
         x_te = x[test_i]
         y_te = y[test_i]
 
-    return x_tr, y_tr, x_te, y_te
+    return x_tr, y_tr, x_te, y_te, train_i, test_i
 
 
 def transform_input_to_numpy(spark):
@@ -168,6 +185,8 @@ def transform_input_to_numpy(spark):
 
     col_nms = df.columns
 
+    import pyspark.sql.functions as sf
+
     df = df.withColumn('FEATURES', sf.array(col_nms))
 
     df = df.drop(*col_nms)
@@ -192,16 +211,51 @@ def transform_input_to_numpy(spark):
     logger.info("Transforming prophet input data to numpy array done in %s.", time_it(overall, time()))
 
 
-def transform_output_to_numpy():
-    data = pd.read_csv(filepath_or_buffer=os.path.join(RMC.INPUT_DIR, RMC.PROPHET_OUTPUT_ALL + '.csv'),
-                       sep=';', thousands='.', decimal=',', header=0)
+def transform_output_to_numpy(spark):
+#    data = pd.read_csv(filepath_or_buffer=os.path.join(RMC.INPUT_DIR, RMC.PROPHET_OUTPUT_ALL + '.csv'),
+#                       sep=';', thousands='.', decimal=',', header=0)
 
-    data.set_index('SCENARIO', inplace=True)
-    data.sort_index(inplace=True)
+#    data.set_index('SCENARIO', inplace=True)
+#    data.sort_index(inplace=True)
 
-    data = data.as_matrix()
+#    data = data.astype('float64')
+#    data = data.as_matrix()
+
+    logger.info("Transforming prophet input data to numpy array ...")
+
+    overall = time()
+
+    logger.info("Reading output data file ...")
+
+    then = time()
+
+    df = spark.read.csv(path=os.path.join(RMC.INPUT_DIR, RMC.PROPHET_OUTPUT_ALL + '.csv'),
+                        header=True, inferSchema=True, sep=';')
+
+    logger.info("Reading output data file done in %s.", time_it(then, time()))
+
+    logger.info("Collecting data ...")
+
+    then = time()
+
+    df = df.orderBy('SCENARIO')
+    df = df.drop('SCENARIO')
+
+    data = df.collect()
+
+    logger.info("Collecting data done in %s.", time_it(then, time()))
+
+    logger.info("Creating and saving numpy array ...")
+
+    then = time()
+
+    data = np.array(data)
 
     np.save(os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_OUTPUT_ALL_NUMPY + '.npy'), data)
+
+    logger.info("Creating and saving numpy array done in %s.", time_it(then, time()))
+
+    logger.info("Transforming prophet ouput data to numpy array done in %s.", time_it(overall, time()))
 
 
 def execute_proper_header():
@@ -209,15 +263,29 @@ def execute_proper_header():
 
     then = time()
 
-    fac = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT_ALL + '.fac')
-    csv = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv')
+    # wro = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT_ALL + '.fac')
+    # pro = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv')
+    #
+    # with open(wro, 'r') as orig:
+    #     with open(pro, 'w') as copy:
+    #         i = 0
+    #         for line in orig:
+    #             if i >= 2:
+    #                 copy.write(line)
+    #
+    #             i += 1
+    #
+    #             if i % 10000 == 0:
+    #                 logger.info("Creating proper data file ... %3.2f%%", (i * 100.0 / 780081))
+    #
+    wro = os.path.join(RMC.INPUT_DIR, RMC.PROPHET_INPUT_ALL + '.fac')
+    pro = os.path.join(RMC.OUTPUT_DIR, RMC.PROPHET_INPUT_ALL_PROPER_HEADER + '.csv')
 
-    with open(fac, 'r') as orig:
-        with open(csv, 'w') as copy:
+    with open(wro, 'r') as orig:
+        with open(pro, 'w') as copy:
             i = 0
             for line in orig:
-                if i >= 2:
-                    copy.write(line)
+                copy.write(line.replace(',', ''))
 
                 i += 1
 
@@ -321,9 +389,9 @@ def execute_to_numpy(spark):
 
     overall = time()
 
-    transform_input_to_numpy(spark)
+    #transform_input_to_numpy(spark)
 
-    transform_output_to_numpy()
+    transform_output_to_numpy(spark)
 
     logger.info("Saving data as numpy array done in %s.", time_it(overall, time()))
 
@@ -331,7 +399,7 @@ def execute_to_numpy(spark):
 def execute_trim_and_split():
     logger.info("Starting initial data preparation ...")
 
-    train_x, train_y, _, _, _, _ = load_all_data(
+    train_x, train_y, _, _, _, _, _, _, _ = load_all_data(
         train_set=True,
         val_set=False,
         test_set=False,
@@ -354,7 +422,7 @@ def execute_trim_and_split():
         train_x_as_test = train_x
         train_y_as_test = train_y
 
-    train_x, train_y, val_x, val_y, test_x, test_y = split_data(x=train_x, y=train_y,
+    train_x, train_y, val_x, val_y, test_x, test_y, train_i, val_i, test_i = split_data(x=train_x, y=train_y,
                                                                 train_size=RMC.TRAIN_SIZE,
                                                                 val_size=RMC.VAL_SIZE,
                                                                 test_size=RMC.TEST_SIZE)
@@ -362,16 +430,22 @@ def execute_trim_and_split():
     if RMC.TEST_SIZE == 0:
         test_x = train_x_as_test
         test_y = train_y_as_test
+        test_i = range(len(test_y))
 
     logger.info("Splitting prepared training data done.")
 
     save_all_data(
         train_x=train_x,
         train_y=train_y,
+        train_i=train_i,
         val_x=val_x,
         val_y=val_y,
+        val_i=val_i,
         test_x=test_x,
-        test_y=test_y)
+        test_y=test_y,
+        test_i=test_i)
+
+
 
 
 def main():
