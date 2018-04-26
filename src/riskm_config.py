@@ -39,7 +39,7 @@ logger = logging.getLogger('RiskM')
 
 class RMC:
     PROJECT_ROOT_DIR = os.environ['RM_ROOT_DIR']
-    INPUT_DIR = os.path.join(PROJECT_ROOT_DIR, 'input')
+    INPUT_DIR = os.path.join('/home', 'ubuntu', 'dlqa-ifrs17_efs', 'input-data')
     OUTPUT_DIR = os.path.join(PROJECT_ROOT_DIR, 'output')
     SRC_DIR = os.path.join(PROJECT_ROOT_DIR, 'src')
     THIS_FILE = 'riskm_full'
