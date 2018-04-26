@@ -68,22 +68,22 @@ class RMC:
     TRAIN_SIZE = 0.95
     VAL_SIZE = 0.05
     TEST_SIZE = 0.00
-    YEARS = 1
+    YEARS = 40
     INPUT_LEN = YEARS * 12 + 1
     INPUT_DIM = 78
     OUTPUT_DIM = 1
     DP = 'DP02R00'
 
     GPUS=1
-    MV = 'MV03R00'
+    MV = 'MV04R00'
 
-    BATCH_SIZE = 32
-    OV = 'OV01R00'
+    BATCH_SIZE = 64
+    OV = 'OV01R02'
 
     START_EP = 0
-    END_EP = 400
+    END_EP = 60
     LOAD_MODEL = None
-    TRN = 'TR013'
+    TRN = 'TR018'
 
 
 def time_it(start, end):

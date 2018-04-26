@@ -28,12 +28,12 @@ from data_preparation import load_all_data
 
 def build_keras_model():
     ip = Input(shape=(RMC.INPUT_LEN, RMC.INPUT_DIM), name='Input_Sequence')
-    op = Bidirectional(CuDNNGRU(units=300, return_sequences=True, name='RNN_1'))(ip)
-    op = Bidirectional(CuDNNGRU(units=300, return_sequences=True, name='RNN_2'))(op)
-    op = Bidirectional(CuDNNGRU(units=300, name='RNN_3'))(op)
-    op = Dense(300, name='Dense_1')(op)
-    op = Dense(200, name='Dense_2')(op)
-    op = Dense(100, name='Dense_3')(op)
+    op = Bidirectional(CuDNNGRU(units=600, return_sequences=True, name='RNN_1'))(ip)
+    op = Bidirectional(CuDNNGRU(units=600, return_sequences=True, name='RNN_2'))(op)
+    op = Bidirectional(CuDNNGRU(units=600, name='RNN_3'))(op)
+    op = Dense(600, name='Dense_1')(op)
+    op = Dense(300, name='Dense_2')(op)
+    op = Dense(200, name='Dense_3')(op)
     op = Dense(1, name='Prediction')(op)
 
     model = Model(ip, op)
