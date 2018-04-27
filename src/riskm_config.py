@@ -1,5 +1,7 @@
 import os
 import logging.config
+from time import time
+from datetime import datetime
 
 
 DEFAULT_LOGGING = {
@@ -75,15 +77,18 @@ class RMC:
     DP = 'DP02R00'
 
     GPUS=1
-    MV = 'MV04R00'
+    MV = 'MV04R01'
 
-    BATCH_SIZE = 64
-    OV = 'OV01R02'
+    BATCH_SIZE = 256
+    OV = 'OV02R00'
 
     START_EP = 0
-    END_EP = 60
+    END_EP = 20
     LOAD_MODEL = None
-    TRN = 'TR018'
+    TRN = 'TR024'
+
+    #Tensorboard LogDir
+    tb_log_dir= '../output/tbLogs/%s-%s-%s-%s-Y%d' % (datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H-%M-%S'), DP, MV, OV, YEARS)
 
 
 def time_it(start, end):
