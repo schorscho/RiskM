@@ -1,7 +1,7 @@
 import sys
 import os
-import math
 from time import time
+from datetime import datetime
 from math import sqrt
 
 import numpy as np
@@ -9,23 +9,28 @@ import numpy as np
 import pandas as pd
 
 from sklearn.metrics import mean_squared_error
-from sklearn.preprocessing import StandardScaler
 
 from keras.callbacks import LearningRateScheduler, TensorBoard
+from keras.utils import multi_gpu_model
 
-from riskm_config import RMC, time_it, logger
+from rm_logging import time_it, logger
+from rm_config import RMC
+from model_config import MLC
 from data_preparation import load_all_data
 import model_tracking as mt
-import model_creation as mc
 
 
-def create_feature_prep_pipeline():
-    return StandardScaler()
+def get_tb_log_dir():
+    tb_log_dir = os.path.join(RMC.TB_LOG_DIR,
+                              '%s-%s-%s-%s-Y%d' % (datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H-%M-%S'),
+                                                   MLC.DP, MLC.MV, MLC.OV, MLC.YEARS))
+
+    return tb_log_dir
 
 
 def apply_feature_prep_pipeline(x, fpp, fit):
     print(x.shape)
-    x = x.reshape(-1, RMC.INPUT_DIM)
+    x = x.reshape(-1, MLC.INPUT_DIM)
     print(x.shape)
 
     if fit:
@@ -35,15 +40,18 @@ def apply_feature_prep_pipeline(x, fpp, fit):
 
     print(x.shape)
 
-    x = x.reshape(-1, RMC.INPUT_LEN, RMC.INPUT_DIM)
+    x = x.reshape(-1, MLC.INPUT_LEN, MLC.INPUT_DIM)
 
     return x
 
 
-def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build_on_model,
+def execute_train(model_dir, model_file_name, fpp, model, start_epoch, end_epoch,
                   train_x, train_y, train_i, val_x, val_y, val_i):
-    if fpp is None:
-        fpp = create_feature_prep_pipeline()
+    model_creator = MLC.get_model_creator()
+
+    if model is None:
+        fpp = model_creator.build_feature_prep_pipeline()
+        model = model_creator.build_model(MLC.INPUT_LEN, MLC.INPUT_DIM, MLC.OUTPUT_DIM)
         fit = True
     else:
         fit = False
@@ -55,24 +63,20 @@ def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build
 
     logger.info('Building/compiling model ...')
 
-    if build_on_model is None:
-        model = mc.build_keras_model()
-        model = mc.compile_keras_model(model)
-    else:
-        model = build_on_model
+    if MLC.GPUS > 1:
+        model = multi_gpu_model(model, gpus=MLC.GPUS)
 
-    tbCallback = TensorBoard(log_dir=RMC.tb_log_dir, histogram_freq=0, write_graph=True, write_images=False)
+    model = model_creator.compile_model(model)
+
+    model_tracker = mt.Model_Tracker(model_dir, model_file_name, model, val_x, val_y, val_i)
+
     callbacks = [
-        LearningRateScheduler(mc.lr_schedule),
-        tbCallback]
+        LearningRateScheduler(model_creator.get_learning_rate_schedule()),
+        TensorBoard(log_dir=get_tb_log_dir(), histogram_freq=0, write_graph=True, write_images=False),
+        model_tracker]
 
-
-    if model_file_name is not None:
-        mt_callback = mt.Model_Tracker(model_dir, model_file_name, model, val_x, val_y, val_i)
-
-        callbacks.append(mt_callback)
-
-        mt.save_feature_prep_pipeline(fpp, model_dir, model_file_name)
+    if fit:
+        model_tracker.save_feature_prep_pipeline(fpp)
 
     logger.info('Building/compiling model done.')
 
@@ -80,7 +84,7 @@ def execute_train(model_dir, model_file_name, start_epoch, end_epoch, fpp, build
 
     model.fit(
         x=[x_t], y=y_t,
-        batch_size=RMC.BATCH_SIZE,
+        batch_size=MLC.BATCH_SIZE,
         epochs=end_epoch,
         verbose=1,
         callbacks=callbacks,
@@ -134,8 +138,6 @@ def main():
 
     fpp = None
     model = None
-    model_file_name = None
-    model_dir = None
 
     for arg in sys.argv[1:]:
         if arg == 'train':
@@ -152,26 +154,15 @@ def main():
         test_set=test,
         init=False)
 
-    if train or test:
-        if RMC.TRN is not None:
-            model_file_name = '{0}_{1}_{2}_{3}'.format(RMC.TRN, RMC.MV, RMC.OV, RMC.DP)
-            model_dir = os.path.join(RMC.OUTPUT_DIR, model_file_name)
+    model_file_name = '{0}_{1}_{2}_{3}'.format(MLC.TRN, MLC.MV, MLC.OV, MLC.DP)
+    model_dir = os.path.join(RMC.OUTPUT_DIR, model_file_name)
 
-            if not os.path.exists(model_dir) and train:
-                os.makedirs(model_dir)
-
-            if mt.previous_keras_model_file_exists(model_dir, model_file_name):
-               logger.info("Loading model ...")
-
-               fpp = mt.load_feature_prep_pipeline(model_dir, model_file_name)
-               model = mt.load_keras_model(model_dir, model_file_name)
-
-               logger.info("Loading model done.")
+    if test or (train and not MLC.OVERWRITE):
+        fpp, model = mt.load_previous_model_if_available(model_dir, model_file_name)
 
     if train:
-        fpp, model = execute_train(model_dir, model_file_name,
-                                   start_epoch=RMC.START_EP, end_epoch=RMC.END_EP,
-                                   fpp=fpp, build_on_model=model,
+        fpp, model = execute_train(model_dir, model_file_name, fpp, model,
+                                   start_epoch=MLC.START_EP, end_epoch=MLC.END_EP,
                                    train_x=train_x, train_y=train_y, train_i=train_i,
                                    val_x=val_x, val_y=val_y, val_i=val_i)
 

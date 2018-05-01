@@ -1,22 +1,22 @@
 import sys
 import os
 from time import time
-from shutil import copyfile, rmtree
+from shutil import rmtree
 
 import numpy as np
 
-import pandas as pd
-
 from sklearn.model_selection import ShuffleSplit
 
-from riskm_config import RMC, logger, time_it
+from rm_logging import logger, time_it
+from rm_config import RMC
+from model_config import MLC
 
 
 def load_data(file_name, init=False):
     if init:
         file_name = file_name + '.npy'
     else:
-        file_name += '_' + RMC.DP + '.npy'
+        file_name += '_' + MLC.DP + '.npy'
 
     data = np.load(os.path.join(RMC.OUTPUT_DIR, file_name))
 
@@ -69,7 +69,7 @@ def load_all_data(train_set, val_set, test_set, init):
 
 
 def save_data(data, file_name):
-    file_name += '_' + RMC.DP + '.npy'
+    file_name += '_' + MLC.DP + '.npy'
 
     np.save(file=os.path.join(RMC.OUTPUT_DIR, file_name), arr=data)
 
@@ -410,7 +410,7 @@ def execute_trim_and_split():
     print(train_x.shape, train_y.shape)
     logger.info("Trimming training data ...")
 
-    train_x, train_y = trim_data(train_x, train_y, years=RMC.YEARS)
+    train_x, train_y = trim_data(train_x, train_y, years=MLC.YEARS)
     print(train_x.shape, train_y.shape)
 
     logger.info("Trimming training data done.")
@@ -420,16 +420,16 @@ def execute_trim_and_split():
     train_x_as_test = None
     train_y_as_test = None
 
-    if RMC.TEST_SIZE == 0:
+    if MLC.TEST_SIZE == 0:
         train_x_as_test = train_x
         train_y_as_test = train_y
 
     train_x, train_y, val_x, val_y, test_x, test_y, train_i, val_i, test_i = split_data(x=train_x, y=train_y,
-                                                                train_size=RMC.TRAIN_SIZE,
-                                                                val_size=RMC.VAL_SIZE,
-                                                                test_size=RMC.TEST_SIZE)
+                                                                train_size=MLC.TRAIN_SIZE,
+                                                                val_size=MLC.VAL_SIZE,
+                                                                test_size=MLC.TEST_SIZE)
 
-    if RMC.TEST_SIZE == 0:
+    if MLC.TEST_SIZE == 0:
         test_x = train_x_as_test
         test_y = train_y_as_test
         test_i = range(len(test_y))
@@ -446,8 +446,6 @@ def execute_trim_and_split():
         test_x=test_x,
         test_y=test_y,
         test_i=test_i)
-
-
 
 
 def main():
