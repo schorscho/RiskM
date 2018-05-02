@@ -105,6 +105,8 @@ class Model_Tracker(Callback):
         fig.set_size_inches(12, 8)
         fig.savefig(os.path.join(self.dir, self.file_name + '_training_history.png'), dpi=100)
 
+        plt.close()
+
 
     def save_validation_results(self, i, y, y_pred):
         val_result = pd.DataFrame(
@@ -177,7 +179,9 @@ class Model_Tracker(Callback):
         fig = plt.gcf()
         # fig.tight_layout(rect=[0.01, 0.2, 1, 0.9])
         fig.set_size_inches(12, 10)
-        fig.savefig(os.path.join(self.dir, self.file_name + '_plot.png'), dpi=100)
+        fig.savefig(os.path.join(self.dir, self.file_name + '_validation_results.png'), dpi=100)
+
+        plt.close()
 
 
     def save_feature_prep_pipeline(self, fpp):

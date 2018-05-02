@@ -68,7 +68,7 @@ def execute_train(model_dir, model_file_name, fpp, model, start_epoch, end_epoch
 
     model = model_creator.compile_model(model)
 
-    model_tracker = mt.Model_Tracker(model_dir, model_file_name, model, val_x, val_y, val_i)
+    model_tracker = mt.Model_Tracker(model_dir, model_file_name, model, x_v, y_v, val_i)
 
     callbacks = [
         LearningRateScheduler(model_creator.get_learning_rate_schedule()),
