@@ -9,9 +9,11 @@ import numpy as np
 import pandas as pd
 
 from sklearn.metrics import mean_squared_error
+from sklearn.ensemble import AdaBoostRegressor
 
 from keras.callbacks import LearningRateScheduler, TensorBoard
 from keras.utils import multi_gpu_model
+from keras.wrappers.scikit_learn import KerasRegressor
 
 from rm_logging import time_it, logger
 from rm_config import RMC
@@ -29,16 +31,12 @@ def get_tb_log_dir():
 
 
 def apply_feature_prep_pipeline(x, fpp, fit):
-    print(x.shape)
     x = x.reshape(-1, MLC.INPUT_DIM)
-    print(x.shape)
 
     if fit:
         x = fpp.fit_transform(x)
     else:
         x = fpp.transform(x)
-
-    print(x.shape)
 
     x = x.reshape(-1, MLC.INPUT_LEN, MLC.INPUT_DIM)
 
@@ -89,6 +87,7 @@ def execute_train(model_dir, model_file_name, fpp, model, start_epoch, end_epoch
         verbose=1,
         callbacks=callbacks,
         shuffle=True,
+        sample_weight=None,
         initial_epoch=start_epoch,
         steps_per_epoch=None,
         validation_data=[[x_v], y_v])
@@ -96,6 +95,48 @@ def execute_train(model_dir, model_file_name, fpp, model, start_epoch, end_epoch
     logger.info('Fitting model done.')
 
     return fpp, model
+
+
+def execute_ada_boost(model_dir, model_file_name, start_epoch, end_epoch,
+                  train_x, train_y, train_i, val_x, val_y, val_i):
+    model_creator = MLC.get_model_creator()
+
+    fpp = model_creator.build_feature_prep_pipeline()
+    model_fn = lambda: model_creator.build_model(MLC.INPUT_LEN, MLC.INPUT_DIM, MLC.OUTPUT_DIM)
+
+    x_t = apply_feature_prep_pipeline(x=train_x, fpp=fpp, fit=True)
+    x_t = x_t.reshape(-1, MLC.INPUT_LEN * MLC.INPUT_DIM)
+    y_t = train_y
+    x_v = apply_feature_prep_pipeline(x=val_x, fpp=fpp, fit=False)
+    y_v = val_y
+
+    logger.info('Building/compiling model ...')
+
+    #if MLC.GPUS > 1:
+    #    model = multi_gpu_model(model, gpus=MLC.GPUS)
+
+    #model = model_creator.compile_model(model)
+
+    #model_tracker = mt.Model_Tracker(model_dir, model_file_name, model, x_v, y_v, val_i)
+
+    callbacks = [
+        LearningRateScheduler(model_creator.get_learning_rate_schedule())]
+    #    TensorBoard(log_dir=get_tb_log_dir(), histogram_freq=0, write_graph=True, write_images=False),
+    #    model_tracker]
+
+    keras_regr = KerasRegressor(build_fn=model_fn, batch_size=MLC.BATCH_SIZE, epochs=end_epoch,
+                                verbose=1, shuffle=True,
+                                initial_epoch=start_epoch)
+
+    ada_boost = AdaBoostRegressor(keras_regr, n_estimators=2, random_state=None)
+
+    logger.info('Building/compiling model done.')
+
+    logger.info('Fitting model ...')
+
+    ada_boost.fit(x_t, y_t)
+
+    logger.info('Fitting model done.')
 
 
 def execute_test(fpp, model, test_x, test_y, test_i, model_dir, model_file_name):
@@ -135,6 +176,7 @@ def main():
 
     train = False
     test = False
+    ada_boost = False
 
     fpp = None
     model = None
@@ -144,13 +186,15 @@ def main():
             train = True
         elif arg == 'test':
             test = True
+        elif arg == 'ada_boost':
+            ada_boost = True
 
-    if not train and not test:
+    if not train and not test and not ada_boost:
         train = True
 
     train_x, train_y, train_i, val_x, val_y, val_i, test_x, test_y, test_i = load_all_data(
-        train_set=train,
-        val_set=train,
+        train_set=train or ada_boost,
+        val_set=train or ada_boost,
         test_set=test,
         init=False)
 
@@ -168,6 +212,12 @@ def main():
 
     if test:
         execute_test(fpp, model, test_x, test_y, test_i, model_dir, model_file_name)
+
+    if ada_boost:
+        execute_ada_boost(model_dir, model_file_name,
+                                   start_epoch=MLC.START_EP, end_epoch=MLC.END_EP,
+                                   train_x=train_x, train_y=train_y, train_i=train_i,
+                                   val_x=val_x, val_y=val_y, val_i=val_i)
 
     logger.info("Main script finished in %s.", time_it(overall, time()))
 

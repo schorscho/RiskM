@@ -123,7 +123,7 @@ class Model_Tracker(Callback):
             file.write("Best Epoch: {0}\n".format(self.best_epoch))
             file.write("Validation MSE: {0}\n".format(skl_mse))
             file.write("Validation RMSE: {0}\n".format(skl_rmse))
-            file.write("Validation MAPE: {0}\n".format(np.mean(np.absolute(y - y_pred) * 100 / y)))
+            file.write("Validation MAPE: {0}\n".format(100. * (np.mean(np.absolute(y - y_pred) / np.absolute(y)))))
 
 
     def plot_validation_results(self, y, y_pred):

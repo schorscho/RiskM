@@ -1,4 +1,4 @@
-from rnn_model_builders import Baseline_RNN_Model_Builder, AdaBoost_RNN_Model_Builder
+from cnn_model_builders import Baseline_CNN_Model_Builder
 
 
 class MLC:
@@ -6,7 +6,7 @@ class MLC:
     VAL_SIZE = 0.05
     TEST_SIZE = 0.00
 
-    YEARS = 40
+    YEARS = 10
     INPUT_LEN = YEARS * 12 + 1
     INPUT_DIM = 78
     OUTPUT_DIM = 1
@@ -19,15 +19,14 @@ class MLC:
     OV = 'OV02R00'
 
     START_EP = 0
-    END_EP = 10
-    TRN = 'TR030'
-    OVERWRITE = False
+    END_EP = 200
+    TRN = 'TR026'
+    OVERWRITE = True
 
-    MODEL_CREATOR_FILE='rnn_model_builders'
+    MODEL_CREATOR_FILE='cnn_model_builders'
 
     @staticmethod
     def get_model_creator():
-        return Baseline_RNN_Model_Builder()
-        #return AdaBoost_RNN_Model_Builder()
+        return Baseline_CNN_Model_Builder()
 
 
